@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// yt-loader MCP server: exposes `youtube_transcript` over stdio.
+// yt-loader MCP server: exposes `youtube_transcript` and `tiktok_transcript` over stdio.
 //
 // Why this exists: the /yt skill runs its fetch script wherever Claude's shell is.
 // In Claude's cloud sandbox (and the desktop app's sandboxed VM) youtube.com is
@@ -11,10 +11,22 @@
 // needs: initialize, ping, tools/list, tools/call. Newline-delimited JSON-RPC.
 
 import { createInterface } from "node:readline";
-import { fetchTranscript, formatTranscript, videoId, explainFetchError } from "../lib/transcript.mjs";
+import { fetchAny, formatTranscript, explainFetchError } from "../lib/transcript.mjs";
 
-const SERVER = { name: "yt-loader", version: "0.2.0" };
+const SERVER = { name: "yt-loader", version: "0.3.0" };
 const PROTOCOL = "2024-11-05";
+
+const COMMON = {
+  timestamps: {
+    type: "boolean",
+    description: "Group the text into ~30-second blocks prefixed with [m:ss]. Default false (plain paragraphs).",
+  },
+  lang: {
+    type: "string",
+    description: "Comma-separated language preference, e.g. \"es,en\". Default \"en\".",
+  },
+  no_cache: { type: "boolean", description: "Bypass ~/.cache/yt-transcript and refetch." },
+};
 
 const TOOLS = [
   {
@@ -25,29 +37,31 @@ const TOOLS = [
       "11-character video id. Runs on the user's own machine, so it works even when the sandbox cannot reach youtube.com.",
     inputSchema: {
       type: "object",
-      properties: {
-        url: { type: "string", description: "YouTube URL or 11-character video id." },
-        timestamps: {
-          type: "boolean",
-          description: "Group the text into ~30-second blocks prefixed with [m:ss]. Default false (plain paragraphs).",
-        },
-        lang: {
-          type: "string",
-          description: "Comma-separated language preference, e.g. \"es,en\". Default \"en\".",
-        },
-        no_cache: { type: "boolean", description: "Bypass ~/.cache/yt-transcript and refetch." },
-      },
+      properties: { url: { type: "string", description: "YouTube URL or 11-character video id." }, ...COMMON },
+      required: ["url"],
+    },
+  },
+  {
+    name: "tiktok_transcript",
+    description:
+      "Fetch a TikTok video's auto-generated captions and return them as text with the caption, creator and " +
+      "length. Works for tiktok.com/@user/video/ID links and vm.tiktok.com / tiktok.com/t/ short links. " +
+      "Runs on the user's own machine, so it works even when the sandbox cannot reach tiktok.com.",
+    inputSchema: {
+      type: "object",
+      properties: { url: { type: "string", description: "TikTok video URL (full or short link)." }, ...COMMON },
       required: ["url"],
     },
   },
 ];
 
 async function callTool(name, args = {}) {
-  if (name !== "youtube_transcript") throw new Error(`Unknown tool: ${name}`);
+  if (!TOOLS.some((t) => t.name === name)) throw new Error(`Unknown tool: ${name}`);
   const langs = String(args.lang ?? "en").split(",").map((s) => s.trim()).filter(Boolean);
   let d;
   try {
-    d = await fetchTranscript(videoId(String(args.url ?? "")), langs, !args.no_cache);
+    // Both tools route by URL, so a TikTok link passed to youtube_transcript still works.
+    d = await fetchAny(String(args.url ?? ""), langs, !args.no_cache);
   } catch (e) {
     return { content: [{ type: "text", text: `No transcript available: ${explainFetchError(e)}` }], isError: true };
   }

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// Fetch a YouTube transcript and print it as text for Claude to read.
+// Fetch a YouTube or TikTok transcript and print it as text for Claude to read.
 // Zero dependencies: Node 18+ (built-in fetch), which Claude Code already requires.
 //
 // Usage: fetch_transcript.mjs <url-or-id> [--timestamps] [--lang en,es] [--no-cache]
 //
-// The fetch logic lives in ../../../lib/transcript.mjs, shared with the MCP server.
+// The fetch logic lives in ../../../lib/, shared with the MCP server.
 
-import { fetchTranscript, formatTranscript, videoId, explainFetchError } from "../../../lib/transcript.mjs";
+import { fetchAny, formatTranscript, explainFetchError } from "../../../lib/transcript.mjs";
 
 function die(msg) {
   console.error(msg);
@@ -24,7 +24,7 @@ async function main() {
 
   let d;
   try {
-    d = await fetchTranscript(videoId(video), langs, !noCache);
+    d = await fetchAny(video, langs, !noCache);
   } catch (e) {
     die(`No transcript available: ${explainFetchError(e)}`);
   }

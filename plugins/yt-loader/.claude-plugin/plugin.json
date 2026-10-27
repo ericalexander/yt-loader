@@ -1,12 +1,13 @@
 {
   "name": "yt-loader",
-  "version": "0.2.0",
-  "description": "Pull a YouTube video's transcript into context: /yt <url> summarizes it, then ask questions about it.",
+  "version": "0.3.0",
+  "description": "Pull a YouTube or TikTok video's transcript into context: /yt <url> summarizes it, then ask questions about it.",
   "author": {
     "name": "Eric Alexander"
   },
   "keywords": [
     "youtube",
+    "tiktok",
     "transcript",
     "summary",
     "mcp"

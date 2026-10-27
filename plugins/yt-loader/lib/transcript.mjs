@@ -1,17 +1,19 @@
-// Shared YouTube transcript fetcher. Zero dependencies: Node 18+ built-in fetch.
+// Shared transcript fetcher. Zero dependencies: Node 18+ built-in fetch.
 //
-// How it works (same path the YouTube web player uses):
+// YouTube (same path the YouTube web player uses):
 //   1. GET the watch page to pick up the InnerTube API key.
 //   2. POST youtubei/v1/player as the Android client to get captionTracks + title.
 //   3. GET the chosen track's baseUrl (timed-text XML) and flatten it.
-// Transcripts cache in ~/.cache/yt-transcript/<id>.json.
+// TikTok lives in ./tiktok.mjs; fetchAny() routes by URL.
+// Transcripts cache in ~/.cache/yt-transcript/<id>.json (TikTok: tiktok-<id>.json).
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { fetchTikTok, isTikTok } from "./tiktok.mjs";
 
 const CACHE = join(homedir(), ".cache", "yt-transcript");
-const UA =
+export const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
 export function videoId(s) {
@@ -34,7 +36,7 @@ export function videoId(s) {
   throw new Error(`Could not find a video id in: ${s}`);
 }
 
-function decodeEntities(t) {
+export function decodeEntities(t) {
   return t
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
@@ -130,6 +132,25 @@ export async function fetchTranscript(vid, langs, useCache) {
   return data;
 }
 
+// Route a YouTube or TikTok link (or bare YouTube id) to the right fetcher. Same cache
+// and output shape either way.
+export async function fetchAny(input, langs, useCache) {
+  if (!isTikTok(input)) return fetchTranscript(videoId(input), langs, useCache);
+
+  await mkdir(CACHE, { recursive: true });
+  // Short links don't carry the id; cache by the id in the URL when we have one.
+  const direct = input.match(/\/(?:video|photo)\/(\d{6,})/)?.[1];
+  const f = direct ? join(CACHE, `tiktok-${direct}.json`) : null;
+  if (useCache && f) {
+    try {
+      return JSON.parse(await readFile(f, "utf8"));
+    } catch {}
+  }
+  const data = await fetchTikTok(input, langs);
+  await writeFile(join(CACHE, `tiktok-${data.id}.json`), JSON.stringify(data));
+  return data;
+}
+
 export function fmtTs(sec) {
   sec = Math.floor(sec);
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
@@ -171,7 +192,7 @@ export function explainFetchError(e) {
   const msg = String(e?.message ?? e);
   const cause = e?.cause ? String(e.cause.code ?? e.cause.message ?? e.cause) : "";
   if (/403|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|fetch failed/.test(msg + " " + cause)) {
-    return `${msg}${cause ? ` (${cause})` : ""} — youtube.com looks unreachable from this network (a proxy or sandbox may block it). Run from a machine with direct internet access, or use the yt-loader MCP server on your own computer.`;
+    return `${msg}${cause ? ` (${cause})` : ""} — the video site looks unreachable from this network (a proxy or sandbox may block it). Run from a machine with direct internet access, or use the yt-loader MCP server on your own computer.`;
   }
   return msg;
 }
