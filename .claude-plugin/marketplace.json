@@ -1,0 +1,11 @@
+{
+  "name": "ericalexander",
+  "owner": { "name": "Eric Alexander" },
+  "plugins": [
+    {
+      "name": "yt-loader",
+      "source": "./plugins/yt-loader",
+      "description": "Pull a YouTube video's transcript into context: /yt <url> summarizes it, then ask questions about it."
+    }
+  ]
+}
