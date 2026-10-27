@@ -31,6 +31,24 @@ answer from the transcript already in context; nothing is re-fetched.
 
 Transcripts cache in `~/.cache/yt-transcript/`.
 
+## MCP server (for sandboxed sessions)
+
+The plugin also ships an MCP server exposing one tool, `youtube_transcript`. It exists
+because the fetch script runs wherever Claude's shell is, and in Claude's cloud sandbox
+(and the desktop app's sandboxed VM) youtube.com is blocked by an egress proxy. An MCP
+server launched by the Claude desktop app runs on your own machine with normal network
+access, so the same fetch works and the transcript comes back as a tool result.
+
+The skill prefers the tool when it is present and falls back to the script otherwise.
+Nothing to configure: `.mcp.json` in the plugin registers the server, and it is the same
+zero-dependency Node code as the script.
+
+To run it by hand, e.g. from a `claude_desktop_config.json`:
+
+```json
+{ "mcpServers": { "yt-loader": { "command": "node", "args": ["/path/to/plugins/yt-loader/mcp/server.mjs"] } } }
+```
+
 ## Layout
 
 This repo is a one-plugin marketplace, so more plugins can be added under `plugins/`
@@ -40,8 +58,11 @@ and listed in `.claude-plugin/marketplace.json`.
 .claude-plugin/marketplace.json
 plugins/yt-loader/
   .claude-plugin/plugin.json
+  .mcp.json                          # registers mcp/server.mjs
+  lib/transcript.mjs                 # the fetch + format logic, shared
+  mcp/server.mjs                     # stdio MCP server: youtube_transcript tool
   skills/yt/SKILL.md
-  skills/yt/scripts/fetch_transcript.mjs
+  skills/yt/scripts/fetch_transcript.mjs   # thin CLI over lib/
 ```
 
 ## How the fetch works
@@ -58,5 +79,7 @@ language.
 ## Known limits
 
 - Videos with captions disabled return nothing; the skill says so instead of guessing.
+- If youtube.com is blocked on the network (proxied sandboxes), the script says so and
+  points at the MCP server instead of retrying.
 - YouTube rate-limits cloud/datacenter IPs. From a home machine it's fine.
 - Auto-generated captions have no punctuation and mangle proper nouns.
