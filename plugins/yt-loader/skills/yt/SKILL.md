@@ -12,12 +12,12 @@ Fetch the transcript with the bundled script, read it, then answer.
 1. Run the fetcher (it caches, so re-runs are free):
 
    ```
-   python3 ${CLAUDE_PLUGIN_ROOT}/skills/yt/scripts/fetch_transcript.py "<url or id>"
+   node ${CLAUDE_PLUGIN_ROOT}/skills/yt/scripts/fetch_transcript.mjs "<url or id>"
    ```
 
    Add `--timestamps` when the user wants timestamps, chapters, or "where in the video"
-   answers. Add `--lang es,en` etc. for non-English preference. If the script says the
-   dependency is missing, run `pip install youtube-transcript-api` and retry.
+   answers. Add `--lang es,en` etc. for non-English preference. No dependencies; it
+   runs on the Node that Claude Code already uses.
 
 2. The full transcript is now in context. Keep it there; do not summarize it away or
    re-fetch for follow-up questions in the same session.
